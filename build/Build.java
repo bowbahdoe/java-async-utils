@@ -4,6 +4,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.nio.file.FileSystems;
@@ -181,38 +182,49 @@ public final class Build {
         }
 
         var url = matcher.group(1);
-        System.out.println("Published to staging repository: " + url);
-        System.out.println("Releasing staging repo after a few minute delay");
-        Thread.sleep(1000 * 240);
-
         var stagingRepoId = Arrays.stream(url.split("/")).reduce((__, part) -> part)
                 .orElseThrow();
-        System.out.printf("Releasing %s!!\n", stagingRepoId);
 
-        var releaseResponse = httpClient.send(
-                HttpRequest.newBuilder()
-                        .uri(URI.create("https://s01.oss.sonatype.org/service/local/staging/bulk/promote"))
-                        .header("content-type", "application/json")
-                        .header("accept", "application/json,application/vnd.siesta-error-v1+json,application/vnd.siesta-validation-errors-v1+json")
-                        .POST(HttpRequest.BodyPublishers.ofString(
-                                """
-                                      {
-                                        "data": {
-                                            "autoDropAfterRelease": true,
-                                            "description": "",
-                                            "stagedRepositoryIds": ["%s"]
-                                        }
-                                      }
-                                      """.formatted(stagingRepoId)
-                        )).build(),
-                HttpResponse.BodyHandlers.ofString()
-        );
+        System.out.println("Published to staging repository: " + url);
+        System.out.println("Releasing staging repo after a few minute delay");
 
-        if (releaseResponse.statusCode() / 10 != 20) {
-            System.err.println("Failed to promote from staging to release");
-            System.out.println(releaseResponse.body());
-            System.exit(1);
+
+        Duration delay = Duration.ofSeconds(30);
+        int retries = 3;
+        for (int retry = 0; retry < retries; retry++) {
+            Thread.sleep(delay);
+            System.out.printf("Trying to release %s.\n", stagingRepoId);
+            var releaseResponse = httpClient.send(
+                    HttpRequest.newBuilder()
+                            .uri(URI.create("https://s01.oss.sonatype.org/service/local/staging/bulk/promote"))
+                            .header("content-type", "application/json")
+                            .POST(HttpRequest.BodyPublishers.ofString(
+                                    """
+                                          {
+                                            "data": {
+                                                "autoDropAfterRelease": true,
+                                                "description": "",
+                                                "stagedRepositoryIds": ["%s"]
+                                            }
+                                          }
+                                          """.formatted(stagingRepoId)
+                            )).build(),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+
+            if (releaseResponse.statusCode() / 10 != 20) {
+                if (retry == retries - 1) {
+                    System.err.println("Failed to promote from staging to release");
+                    System.out.println(releaseResponse.body());
+                    System.exit(1);
+                }
+                else {
+                    delay = delay.multipliedBy(2);
+                    System.err.println("Failed to promote from staging to release, trying again");
+                }
+            }
         }
+
     }
 
     public static void main(String[] args) throws Exception {
