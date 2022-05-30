@@ -229,6 +229,7 @@ public final class Build {
             }
         }
 
+        System.out.println("Released to Maven Central!");
     }
 
     public static void main(String[] args) throws Exception {
