@@ -15,7 +15,7 @@ public final class Build {
     static final String VERSION = "0.0." + Instant.now().getEpochSecond();
 
     static void run(List<String> cmd) throws Exception {
-        System.out.println(cmd);
+        System.out.println("Running Command: " + String.join(" ", cmd));
         int exit = new ProcessBuilder(cmd)
             .inheritIO()
             .start()
@@ -59,7 +59,9 @@ public final class Build {
         run(List.of("jar", "cf", "target/deploy/async-%s-sources.jar".formatted(VERSION), "-C", "src", "."));
     }
 
-    static void publish() throws Exception {
+    static void publish(String sonatypeUsername,
+                        String sonatypePassword,
+                        String gpgPassphrase) throws Exception {
         jar();
         Files.writeString(
             Path.of("target", "deploy", "async-%s.pom".formatted(VERSION)),
@@ -104,28 +106,33 @@ public final class Build {
             """.formatted(VERSION)
         );
 
-        run(List.of("gpg", "-ab", "target/deploy/async-%s.pom".formatted(VERSION)));
-        run(List.of("gpg", "-ab", "target/deploy/async-%s.jar".formatted(VERSION)));
-        run(List.of("gpg", "-ab", "target/deploy/async-%s-javadoc.jar".formatted(VERSION)));
-        run(List.of("gpg", "-ab", "target/deploy/async-%s-sources.jar".formatted(VERSION)));
+        var gpgCmd = new ArrayList<>(List.of("gpg", "-ab"));
+        if (gpgPassphrase != null) {
+            gpgCmd.addAll(List.of("--pinentry-mode", "loopback", "--passphrase", gpgPassphrase));
+        }
+        gpgCmd.addAll(List.of(
+                "target/deploy/async-%s.pom".formatted(VERSION),
+                "target/deploy/async-%s.jar".formatted(VERSION),
+                "target/deploy/async-%s-javadoc.jar".formatted(VERSION),
+                "target/deploy/async-%s-sources.jar".formatted(VERSION)
+
+        ));
+        run(gpgCmd);
         run(List.of("jar", "-cvf", "target/bundle.jar", "-C", "target/deploy", "."));
 
         var httpClient = HttpClient.newBuilder()
                 .cookieHandler(new CookieManager())
                 .build();
 
-        var scanner = new Scanner(System.in);
-        System.out.print("Sonatype Username: ");
-        var username = scanner.next();
-        System.out.print("Sonatype Password: ");
-        var password = scanner.next();
 
         var loginResponse = httpClient.send(
                 HttpRequest.newBuilder()
                         .GET()
                         .uri(URI.create("https://s01.oss.sonatype.org/service/local/authentication/login"))
                         .header("Authorization", "Basic " + Base64.getEncoder()
-                                .encodeToString((username + ":" + password).getBytes(StandardCharsets.UTF_8))
+                                .encodeToString(
+                                        (sonatypeUsername + ":" + sonatypePassword).getBytes(StandardCharsets.UTF_8)
+                                )
                         )
                         .build(),
                 HttpResponse.BodyHandlers.ofString()
@@ -175,7 +182,7 @@ public final class Build {
 
         var url = matcher.group(1);
         System.out.println("Published to staging repository: " + url);
-        System.out.println("Releasing staging repo after a few minutes wait");
+        System.out.println("Releasing staging repo after a few minute delay");
         Thread.sleep(1000 * 120);
 
         var stagingRepoId = Arrays.stream(url.split("/")).reduce((__, part) -> part)
@@ -190,25 +197,22 @@ public final class Build {
                         .POST(HttpRequest.BodyPublishers.ofString(
                                 """
                                       {
-                                        "autoDropAfterRelease": true,
-                                        "description": "",
-                                        "stagedRepositoryIds": ["%s"]
+                                        "data": {
+                                            "autoDropAfterRelease": true,
+                                            "description": "",
+                                            "stagedRepositoryIds": ["%s"]
+                                        }
                                       }
                                       """.formatted(stagingRepoId)
                         )).build(),
                 HttpResponse.BodyHandlers.ofString()
         );
 
-        System.out.println(releaseResponse);
-        System.out.println(releaseResponse.body());
-
-
-        // Request URL: https://s01.oss.sonatype.org/service/local/staging/bulk/promote
-        /* data: {autoDropAfterRelease: true, description: "", stagedRepositoryIds: ["devmccue-1014"]}
-autoDropAfterRelease: true
-description: ""
-stagedRepositoryIds: ["devmccue-1014"]*/
-        // POST
+        if (releaseResponse.statusCode() / 10 != 20) {
+            System.err.println("Failed to promote from staging to release");
+            System.out.println(releaseResponse.body());
+            System.exit(1);
+        }
     }
 
     public static void main(String[] args) throws Exception {
@@ -235,8 +239,21 @@ stagedRepositoryIds: ["devmccue-1014"]*/
                     jar();
                 }
                 case "publish" -> {
-                    clean();
-                    publish();
+                    if (args.length <= 1) {
+                        var scanner = new Scanner(System.in);
+                        System.out.print("Sonatype Username: ");
+                        var username = scanner.next();
+                        System.out.print("Sonatype Password: ");
+                        var password = scanner.next();
+                        System.out.print("GPG key: ");
+                        var gpgSecret = scanner.next();
+                        clean();
+                        publish(username, password, gpgSecret);
+                    }
+                    else {
+                        clean();
+                        publish(args[1], args[2], args.length > 3 ? args[3] : null);
+                    }
                 }
                 default -> {
                     System.out.println(options);
