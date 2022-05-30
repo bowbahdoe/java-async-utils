@@ -192,7 +192,7 @@ public final class Build {
         Duration delay = Duration.ofSeconds(30);
         int retries = 3;
         for (int retry = 0; retry < retries; retry++) {
-            Thread.sleep(delay);
+            Thread.sleep(delay.toMillis());
             System.out.printf("Trying to release %s.\n", stagingRepoId);
             var releaseResponse = httpClient.send(
                     HttpRequest.newBuilder()
