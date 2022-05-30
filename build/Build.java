@@ -189,10 +189,8 @@ public final class Build {
                 .orElseThrow();
 
         System.out.println("Published to staging repository: " + url);
-        System.out.println("Releasing staging repo after a few minute delay");
-
-
-        Duration delay = Duration.ofMinutes(1);
+        System.out.println("Releasing staging repo after a small delay");
+        Duration delay = Duration.ofSeconds(30);
         int retries = 3;
         for (int retry = 0; retry < retries; retry++) {
             Thread.sleep(delay.toMillis());
@@ -225,6 +223,9 @@ public final class Build {
                     delay = delay.multipliedBy(2);
                     System.err.println("Failed to promote from staging to release, trying again");
                 }
+            }
+            else {
+                break;
             }
         }
 
