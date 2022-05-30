@@ -13,7 +13,7 @@ import java.nio.file.Path;
 import java.util.regex.Pattern;
 
 public final class Build {
-    static final String VERSION = "0.0." + Instant.now().getEpochSecond();
+    static final String VERSION = "0.1.0";
 
     static void run(List<String> cmd) throws Exception {
         System.out.println("Running Command: " + String.join(" ", cmd));
@@ -190,7 +190,7 @@ public final class Build {
 
         System.out.println("Published to staging repository: " + url);
         System.out.println("Releasing staging repo after a small delay");
-        Duration delay = Duration.ofSeconds(30);
+        Duration delay = Duration.ofSeconds(10);
         int retries = 3;
         for (int retry = 0; retry < retries; retry++) {
             Thread.sleep(delay.toMillis());
