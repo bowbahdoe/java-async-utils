@@ -183,7 +183,7 @@ public final class Build {
         var url = matcher.group(1);
         System.out.println("Published to staging repository: " + url);
         System.out.println("Releasing staging repo after a few minute delay");
-        Thread.sleep(1000 * 120);
+        Thread.sleep(1000 * 240);
 
         var stagingRepoId = Arrays.stream(url.split("/")).reduce((__, part) -> part)
                 .orElseThrow();
