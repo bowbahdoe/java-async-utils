@@ -19,8 +19,8 @@ jobs:
           gpg --list-secret-keys --keyid-format LONG
       - name: Publish package
         env:
-          OSSRH_USERNAME:
-          MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
-          MAVEN_OPTS: "--add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.text=ALL-UNNAMED --add-opens=java.desktop/java.awt.font=ALL-UNNAMED"
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          OSSRH_GPG_SECRET_KEY_PASSWORD: ${{ secrets.OSSRH_GPG_SECRET_KEY_PASSWORD }}
         run: |
-          java build/Build.java publish ${{ secrets.OSSRH_USERNAME }} ${{ secrets.OSSRH_PASSWORD }} ${{ secrets.OSSRH_GPG_SECRET_KEY_PASSWORD }}
+          java build/Build.java publish

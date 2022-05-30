@@ -239,21 +239,28 @@ public final class Build {
                     jar();
                 }
                 case "publish" -> {
-                    if (args.length <= 1) {
-                        var scanner = new Scanner(System.in);
+                    var scanner = new Scanner(System.in);
+
+                    String username = System.getenv("OSSRH_USERNAME");
+                    if (username == null) {
                         System.out.print("Sonatype Username: ");
-                        var username = scanner.next();
+                        username = scanner.next();
+                    }
+
+                    String password = System.getenv("OSSRH_PASSWORD");
+                    if (password == null) {
                         System.out.print("Sonatype Password: ");
-                        var password = scanner.next();
+                        password = scanner.next();
+                    }
+
+                    String gpgSecret = System.getenv("OSSRH_GPG_SECRET_KEY_PASSWORD");
+                    if (gpgSecret == null) {
                         System.out.print("GPG key: ");
-                        var gpgSecret = scanner.next();
-                        clean();
-                        publish(username, password, gpgSecret);
+                        gpgSecret = scanner.next();
                     }
-                    else {
-                        clean();
-                        publish(args[1], args[2], args.length > 3 ? args[3] : null);
-                    }
+
+                    clean();
+                    publish(username, password, gpgSecret);
                 }
                 default -> {
                     System.out.println(options);
