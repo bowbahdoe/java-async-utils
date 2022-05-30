@@ -189,7 +189,7 @@ public final class Build {
         System.out.println("Releasing staging repo after a few minute delay");
 
 
-        Duration delay = Duration.ofSeconds(30);
+        Duration delay = Duration.ofSeconds(240);
         int retries = 3;
         for (int retry = 0; retry < retries; retry++) {
             Thread.sleep(delay.toMillis());
