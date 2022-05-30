@@ -107,18 +107,21 @@ public final class Build {
             """.formatted(VERSION)
         );
 
-        var gpgCmd = new ArrayList<>(List.of("gpg", "-ab"));
+        var gpgCmdBase = new ArrayList<>(List.of("gpg", "-ab"));
         if (gpgPassphrase != null) {
-            gpgCmd.addAll(List.of("--pinentry-mode", "loopback", "--passphrase", gpgPassphrase));
+            gpgCmdBase.addAll(List.of("--pinentry-mode", "loopback", "--passphrase", gpgPassphrase));
         }
-        gpgCmd.addAll(List.of(
+
+        for (var file : List.of(
                 "target/deploy/async-%s.pom".formatted(VERSION),
                 "target/deploy/async-%s.jar".formatted(VERSION),
                 "target/deploy/async-%s-javadoc.jar".formatted(VERSION),
                 "target/deploy/async-%s-sources.jar".formatted(VERSION)
-
-        ));
-        run(gpgCmd);
+        )) {
+            var gpgCmd = new ArrayList<>(gpgCmdBase);
+            gpgCmd.add(file);
+            run(gpgCmd);
+        }
         run(List.of("jar", "-cvf", "target/bundle.jar", "-C", "target/deploy", "."));
 
         var httpClient = HttpClient.newBuilder()
@@ -189,7 +192,7 @@ public final class Build {
         System.out.println("Releasing staging repo after a few minute delay");
 
 
-        Duration delay = Duration.ofSeconds(240);
+        Duration delay = Duration.ofMinutes(1);
         int retries = 3;
         for (int retry = 0; retry < retries; retry++) {
             Thread.sleep(delay.toMillis());
